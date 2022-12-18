@@ -4,7 +4,7 @@ USE udiddit;
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(25) UNIQUE NOT NULL,
+    username VARCHAR(25) UNIQUE NOT NULL CHECK(LENGTH("username") > 0),
     datetime_last_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -14,7 +14,7 @@ CREATE INDEX index_user_lastlogin ON users (datetime_last_login);
 
 CREATE TABLE topics (
     id SERIAL PRIMARY KEY,
-    topic_name VARCHAR(30) UNIQUE NOT NULL,
+    topic_name VARCHAR(30) UNIQUE NOT NULL CHECK(LENGTH("topic_name") > 0),
     topic_description VARCHAR(500),
     datetime_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     --user_id BIGINT UNSIGNED FOREIGN KEY (user_id) REFERENCES users (id)
@@ -23,11 +23,11 @@ CREATE TABLE topics (
 
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
+    title VARCHAR(100) NOT NULL CHECK(LENGTH("title") > 0),
     url TEXT,
     content TEXT,
     topic_id BIGINT  NOT NULL REFERENCES topics (id) ON DELETE CASCADE,
-    user_id BIGINT  REFERENCES users (id) ON DELETE SET NULL,
+    user_id BIGINT  NOT NULL REFERENCES users (id) ON DELETE SET NULL,
     datetime_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT post_url_or_content CHECK ((url IS NOT NULL AND content IS NULL)
         OR (content IS NOT NULL AND url IS NULL))
@@ -38,10 +38,10 @@ CREATE INDEX index_post_title ON posts (title);
 
 CREATE TABLE comments (
     id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    parent_id BIGINT  REFERENCES comments (id) ON DELETE CASCADE,
+    content TEXT NOT NULL CHECK(LENGTH("content") > 0),
+    parent_id BIGINT   REFERENCES comments (id) ON DELETE CASCADE,
     post_id BIGINT  NOT NULL  REFERENCES posts (id) ON DELETE CASCADE,
-    user_id BIGINT   REFERENCES users (id) ON DELETE SET NULL,
+    user_id BIGINT NOT NULL   REFERENCES users (id) ON DELETE SET NULL,
     datetime_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -50,7 +50,7 @@ CREATE TABLE votes (
     id SERIAL PRIMARY KEY,
     up_vote INT,
     down_vote INT,
-    user_id BIGINT  REFERENCES users (id)  ON DELETE SET NULL,
+    user_id BIGINT NOT NULL  REFERENCES users (id)  ON DELETE SET NULL,
     post_id BIGINT  NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
     CONSTRAINT vote_value CHECK ((up_vote = 1 AND down_vote IS NULL)
         OR (down_vote = - 1 AND up_vote IS NULL)),
@@ -59,11 +59,20 @@ CREATE TABLE votes (
 
 ------ Populating data
 INSERT INTO users (username) 
-	SELECT DISTINCT LEFT(TRIM(bp.username),25)  --
+	SELECT DISTINCT LEFT(TRIM(bp.username),25)
 		FROM bad_posts as bp
 	UNION
 	SELECT DISTINCT LEFT(TRIM(bc.username),25)
-		FROM bad_comments AS bc;
+		FROM bad_comments AS bc
+    UNION
+    SELECT  DISTINCT LEFT(TRIM(REGEXP_SPLIT_TO_TABLE(upvotes, ',')),25) AS up_vote_user
+        FROM bad_posts
+    UNION
+    SELECT DISTINCT LEFT(TRIM(REGEXP_SPLIT_TO_TABLE(downvotes, ',')),25) AS down_vote_user
+        FROM bad_posts
+
+
+
 
 INSERT INTO topics (topic_name)
 	SELECT DISTINCT LEFT(TRIM(bp.topic),30) 
