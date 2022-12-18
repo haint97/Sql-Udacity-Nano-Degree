@@ -1,1 +1,1 @@
-# Sql-Udacity-Nano-Defree
+# Sql-Udacity-Nano-Degree
